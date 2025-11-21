@@ -1,0 +1,7 @@
+.vs
+**/bin/**
+**/obj/**
+*.user
+*wpftmp.csproj
+.*.testana.json
+/local-build*.bat

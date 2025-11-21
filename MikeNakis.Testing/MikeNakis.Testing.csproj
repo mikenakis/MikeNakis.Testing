@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<Configurations>Debug;Optimized</Configurations>
+	</PropertyGroup>
+
+	<Import Project="..\AllProjects.proj.xml" />
+	<Import Project="..\BannedApiAnalyzers.proj.xml" />
+
+	<PropertyGroup>
+		<!-- `CopyLocalLockFileAssemblies` instructs MSBuild to copy the binaries of all dependencies of this DLL to the
+		     output directory of this DLL.
+			 MSBuild does not normally do that, because normally, it is not necessary.
+			 Instead, MSBuild normally copies dependency binaries to the output directories of any executables that
+			 depend (via any chain of dependencies) on this DLL.
+			 This poses a problem if we want to dynamically load this DLL from its output directory, because normally,
+			 its dependencies will not be there.
+			 Setting `CopyLocalLockFileAssemblies` to `true` fixes this problem.
+			 From: https://stackoverflow.com/a/43841481/773113
+			 Another approach is: https://stackoverflow.com/a/65820076/773113 -->
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\MikeNakis.Kit\MikeNakis.Kit\MikeNakis.Kit.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="LibGit2Sharp" Version="0.30.0" />
+		<!--We include MSTest.TestFramework so that we can use the ClassInitialize and ClassCleanup attributes. -->
+		<PackageReference Include="MSTest.TestFramework" Version="3.6.2" />
+	</ItemGroup>
+
+</Project>
