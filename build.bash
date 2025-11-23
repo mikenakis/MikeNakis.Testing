@@ -100,6 +100,12 @@ function remove_quietly()
 	fi
 }
 
+function do_build()
+{
+	local configuration=$1
+	dotnet build -check --configuration $configuration --verbosity normal
+}
+
 function do_test()
 {
 	dotnet test -check --configuration Debug --verbosity normal
@@ -107,18 +113,23 @@ function do_test()
 
 function do_pack()
 {
-	remove_quietly ${project_name}/bin/Release/*.nupkg
-	dotnet pack -check --configuration Release --property:PublicRelease=true
+	local configuration=$1
+	remove_quietly ${project_name}/bin/${configuration}/*.nupkg
+	dotnet pack -check --configuration ${configuration} --property:PublicRelease=true
 }
 
 function do_push_to_github_packages()
 {
-	dotnet nuget push ${project_name}/bin/Release/*.nupkg --source https://nuget.pkg.github.com/MikeNakis/index.json --api-key ${github_packages_nuget_api_key}
+	local configuration=$1
+	do_pack ${configuration}
+	dotnet nuget push ${project_name}/bin/${configuration}/*.nupkg --source https://nuget.pkg.github.com/MikeNakis/index.json --api-key ${github_packages_nuget_api_key}
 }
 
 function do_push_to_nuget_org()
 {
-	dotnet nuget push ${project_name}/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${nuget_org_nuget_api_key}
+	local configuration=$1
+	do_pack ${configuration}
+	dotnet nuget push ${project_name}/bin/${configuration}/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${nuget_org_nuget_api_key}
 }
 
 function do_increment_version()
@@ -130,54 +141,14 @@ function do_increment_version()
 	git push origin HEAD --tags
 }
 
-function command_auto_output_type_tool()
+function get_xml_value()
 {
-	do_test
-	do_pack
-	do_push_to_github_packages
+	local file=$1
+	local element=$2
+
+	# From Stack Overflow: "Extract XML Value in bash script" https://stackoverflow.com/a/17334043/773113
+	cat ${file} | sed -ne "/${element}/{s/.*<${element}>\(.*\)<\/${element}>.*/\1/p;q;}"
 }
-
-function command_manual_output_type_tool()
-{
-	do_pack
-	do_push_to_nuget_org
-}
-
-function command_auto()
-{
-	assert_no_staged_but_uncommitted_changes
-
-	case "$output_type" in
-		"tool")
-			command_auto_output_type_tool
-			;;
-		*)
-			printf "%s: Invalid argument: '%s'\n" "$0" "$1"
-			exit 1
-	esac
-
-	do_increment_version
-}
-
-function command_manual()
-{
-	assert_no_staged_but_uncommitted_changes
-
-	case "$output_type" in
-		"tool")
-			command_manual_output_type_tool
-			;;
-		*)
-			printf "%s: Invalid argument: '%s'\n" "$0" "$1"
-			exit 1
-	esac
-
-	do_increment_version
-}
-
-if [ ! -f *.sln? ]; then
-	printf "%s: Current directory is not a solution directory.\n" "$0"
-fi
 
 # Parse command-line arguments
 while [ $# -gt 0 ]; do
@@ -201,49 +172,64 @@ while [ $# -gt 0 ]; do
 	shift
 done
 
-if [ ! -f ${project_name}/${project_name}.csproj ]; then
-	printf "%s: No such project: %s.\n" "$0" "${project_name}"
-fi
-
-# Determine output_type
-# From Stack Overflow: "Extract XML Value in bash script" https://stackoverflow.com/a/17334043/773113
-declare -l output_type=$(cat ${project_name}/${project_name}.csproj | sed -ne '/OutputType/{s/.*<OutputType>\(.*\)<\/OutputType>.*/\1/p;q;}')
-
-# PEARL: Even though a missing <OutputType> element defaults to 'Lib', a present but empty <OutputType> element appears
-#    to default to 'Exe'! (WTF?) Note that we are not accounting for a present but empty <OutputType> element here.
-if [ -z "$output_type" ]; then
-    output_type=lib
-fi
-
-printf "%s: output_type=%s.\n" "$0" "${output_type}"
-
-# Determine pack-as-tool
-# From Stack Overflow: "Extract XML Value in bash script" https://stackoverflow.com/a/17334043/773113
-declare -l pack_as_tool=$(cat ${project_name}/${project_name}.csproj | sed -ne '/PackAsTool/{s/.*<PackAsTool>\(.*\)<\/PackAsTool>.*/\1/p;q;}')
-
-case "$pack_as_tool" in
-	"true")
-		;;
-	"false")
-		;;
-	"")
-		pack_as_tool=false
-		;;
-	*)
-		printf "%s: Unexpected PackAsTool value: '%s'\n" "$0" "$pack_as_tool"
-		exit 1
-esac
-
-printf "%s: pack_as_tool=%s.\n" "$0" "${pack_as_tool}"
-
 case "$command" in
 	"auto")
-		command_auto
 		;;
 	"manual")
-		command_manual
 		;;
 	*)
-		printf "%s: Invalid argument: '%s'\n" "$0" "$command"
+		printf "%s: Unknown command: '%s'\n" "$0" "$command"
 		exit 1
 esac
+
+if [ ! -f *.sln? ]; then
+	printf "%s: Current directory is not a solution directory.\n" "$0"
+fi
+
+project_file=${project_name}/${project_name}.csproj
+if [ ! -f ${project_file} ]; then
+	printf "%s: Project file not found: %s.\n" "$0" "${project_file}"
+fi
+
+# PEARL: In MSBuild, a missing <OutputType> element defaults to 'Lib'; however, a present but empty <OutputType> element
+#    appears to default to 'Exe'! (WTF?)
+# Note that we are not accounting for a present but empty <OutputType> element here.
+declare -l output_type=$(get_xml_value ${project_file} OutputType)
+printf "%s: output_type='%s'.\n" "$0" "${output_type}"
+
+declare -l pack_as_tool=$(get_xml_value ${project_file} PackAsTool)
+printf "%s: pack_as_tool='%s'.\n" "$0" "${pack_as_tool}"
+
+assert_no_staged_but_uncommitted_changes
+
+do_build Debug
+do_test # builds and tests the Debug configuration
+
+do_build Develop
+do_build Release
+
+if [[ "$output_type" == "" || "$output_type" == "lib" ]]; then
+
+	if [[ "$command" == "auto" ]]; then
+		do_push_to_github_packages Develop
+	else
+		do_push_to_nuget_org Develop
+	fi
+
+	if [[ "$command" == "auto" ]]; then
+		do_push_to_github_packages Release
+	else
+		do_push_to_nuget_org Release
+	fi
+
+elif [[ "$output_type" == "exe" && "$pack_as_tool" == "true" ]]; then
+
+	if [[ "$command" == "auto" ]]; then
+		do_push_to_github_packages Release
+	else
+		do_push_to_nuget_org Release
+	fi
+
+fi
+
+do_increment_version
