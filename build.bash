@@ -1,11 +1,14 @@
 #!/bin/bash
 
-set -e # magical incantation to immediately exit if any command has a non-zero exit status. PEARL: it still won't fail if any of the following `set` commands fails.
-set -u # magical incantation to mmediately exit if an undefined variable is referenced.
-set -o pipefail # magical incantation to prevent pipelines from masking errors. (Use `command1 | command2 || true` to mask.)
-shopt -s extglob # magical incantation to enable extended pattern matching.
+set -o errexit # Fail if any command has a non-zero exit status. Equivalent to `-e`. PEARL: it still won't fail if any of the following `set` commands fails.
+set -o nounset # Fail if an undefined variable is referenced. Equivalent to `-u`.
+set -o pipefail # Prevent pipelines from masking errors. (Use `command1 | command2 || true` to mask.)
+shopt -s expand_aliases # Do not ignore aliases. (What kind of idiot made ignoring aliases the default behavior?)
+shopt -s extglob # enable extended pattern matching.
 
-# set -x # magical incantation to enable echoing commands for the purpose of troubleshooting.
+# set -x # enable echoing commands for the purpose of troubleshooting.
+
+version_file_pathname=$(realpath version.txt)
 
 function increment_version()
 {
@@ -42,10 +45,7 @@ function create_next_version()
 	local version=$2
 
 	local next_version=$(increment_version "$part_to_increment" "$version")
-	printf "old version: %s new version: %s\n" "$version" "$next_version"
-	printf "%s" "$next_version" > version.txt
-	git add version.txt
-	git commit --message="increment version from $version to $next_version"
+	write_and_commit_version_file $version $next_version
 }
 
 function write_and_commit_version_file()
@@ -54,8 +54,8 @@ function write_and_commit_version_file()
 	local next_version=$2
 
 	printf "old version: %s new version: %s\n" "$version" "$next_version"
-	printf "%s" "$next_version" > version.txt
-	git add version.txt
+	printf "%s" "$next_version" > ${version_file_pathname}
+	git add ${version_file_pathname}
 	git commit --message="increment version from $version to $next_version"
 }
 
@@ -134,10 +134,10 @@ function do_push_to_nuget_org()
 
 function do_increment_version()
 {
-	local version=$(cat version.txt)
+	local version=$(cat ${version_file_pathname})
 	git tag "$version"
 	create_next_version increment_patch $version
-	printf "Pushing version.txt and tag...\n"
+	printf "Pushing version file and tag...\n"
 	git push origin HEAD --tags
 }
 

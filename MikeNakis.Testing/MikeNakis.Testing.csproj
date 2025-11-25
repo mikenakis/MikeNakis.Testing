@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk" InitialTargets="VersioningTarget">
 
 	<PropertyGroup>
+	    <OutputType>Library</OutputType>
 		<TargetFramework>net9.0</TargetFramework>
 		<Configurations>Debug;Optimized</Configurations>
 
@@ -32,7 +33,7 @@
 		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
 		<!-- this will be overridden from the command-line -->
-		<PublicRelease>false</PublicRelease>
+		<PublicRelease>False</PublicRelease>
 	</PropertyGroup>
 
 	<Import Project="..\AllProjects.proj.xml" />
