@@ -103,12 +103,12 @@ function remove_quietly()
 function do_build()
 {
 	local configuration=$1
-	dotnet build -check --configuration $configuration --verbosity normal
+	dotnet build -check --configuration $configuration --verbosity minimal
 }
 
 function do_test()
 {
-	dotnet test -check --configuration Debug --verbosity normal
+	dotnet test -check --configuration Debug --verbosity minimal
 }
 
 function do_pack()
