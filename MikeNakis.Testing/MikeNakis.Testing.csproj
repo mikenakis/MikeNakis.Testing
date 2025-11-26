@@ -3,7 +3,7 @@
 	<PropertyGroup>
 	    <OutputType>Library</OutputType>
 		<TargetFramework>net9.0</TargetFramework>
-		<Configurations>Debug;Optimized</Configurations>
+		<Configurations>Debug;Optimized;Develop</Configurations>
 
 		<!-- Packing properties -->
 		<!--PackageId: the default is $(MSBuildProjectName)-->
