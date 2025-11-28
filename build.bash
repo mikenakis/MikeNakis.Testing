@@ -7,6 +7,7 @@ set -C # do not overwrite an existing file when redirecting. use >| instead of >
 shopt -s expand_aliases # Do not ignore aliases. (What kind of idiot made ignoring aliases the default behavior?)
 #shopt -s extglob # enable extended pattern matching.
 
+PS4='+ ${LINENO}: ' # See https://stackoverflow.com/a/17805088/773113
 # set -x # enable echoing commands for the purpose of troubleshooting.
 
 declare -r version_file_pathname=$(realpath version.txt)
@@ -160,6 +161,7 @@ function run()
 	declare project_name=""
 	declare github_packages_nuget_api_key=""
 	declare nuget_org_nuget_api_key=""
+	declare dry_run=false
 
 	while [ $# -gt 0 ]; do
 		case "$1" in
@@ -174,6 +176,9 @@ function run()
 				;;
 			NuGetOrgNuGetApiKey=*)
 				nuget_org_nuget_api_key="${1#*=}"
+				;;
+			DryRun)
+				dry_run=true
 				;;
 			*)
 				printf "%s: Invalid argument: '%s'\n" "$0" "$1"
@@ -221,41 +226,46 @@ function run()
 		printf "%s: Project file not found: %s.\n" "$0" "${project_file}"
 	fi
 
-	# PEARL: In an MSBuild project file, a missing OutputType property defaults to 'Library'; however, a present but empty OutputType
-	#    property seems to default to 'Exe'! (WTF?) Note: we are not accounting for a present but empty OutputType property here.
-	declare -r -l output_type=$(get_xml_value ${project_file} OutputType)
-	printf "%s: output_type='%s'.\n" "$0" "${output_type}"
+	declare -r -l output_type=$(get_output_type "${project_file}")
+	
+	declare -r -l pack_as_tool=$(get_pack_as_tool "${project_file}")
 
-	declare -r -l pack_as_tool=$(get_xml_value ${project_file} PackAsTool)
-	printf "%s: pack_as_tool='%s'.\n" "$0" "${pack_as_tool}"
+	if [[ "$output_type" == "exe" && "$pack_as_tool" == "true" && ${configurations} == *Develop* ]]; then
+		printf "%s: This project builds an executable tool but has a 'Develop' configuration!?\n" "$0"
+	fi
+	
+	declare -r configurations=$(get_configurations "${project_file}")
 
-	declare -r configurations=$(get_xml_value ${project_file} Configurations)
-	printf "%s: configurations='%s'.\n" "$0" "${configurations}"
-	declare t=${configurations}
-	t=${t/Debug}
-	t=${t/Optimized}
-	t=${t/Develop}
-	t=${t/Release}
-	t=${t//;}
-	echo t="${t}"
-	if [ ! -z ${t} ]; then
-		printf "%s: invalid configurations: '%s'.\n" "$0" "${configurations}"
+	assert_no_staged_but_uncommitted_changes # required by do_increment_version
+
+	if [[ ${dry_run} == "true" ]] then
+		printf "%s: This is a dry run, terminating now.\n" "$0"
 		exit 1
 	fi
 
-	assert_no_staged_but_uncommitted_changes # required by do_increment_version
+	#
+	# The logic:
+	#  First, do a dotnet restore.
+	#  Then, build and test the 'Debug' configuration, or the 'Optimized' configuration if one has been defined.
+	#  Then, if this is a library, or an exe packaged as tool, build and publish the 'Develop' and 'Release'
+	#  configurations, each if defined.
+	#
 
 	dotnet restore -check --verbosity minimal
 
 	if [[ ${configurations} == *Optimized* ]]; then
+
 		do_build Optimized
 		do_test Optimized
+
 	elif [[ ${configurations} == *Debug* ]]; then
+
 		do_build Debug
 		do_test Debug
+
 	fi
 
-	if [[ "$output_type" == "" || "$output_type" == "library" ]]; then
+	if [[ "$output_type" == "library" || "$output_type" == "exe" && "$pack_as_tool" == "true" ]]; then
 
 		if [[ ${configurations} == *Develop* ]]; then
 			do_build Develop
@@ -267,16 +277,66 @@ function run()
 			do_publish ${command} Release ${project_name} ${github_packages_nuget_api_key} ${nuget_org_nuget_api_key}
 		fi
 
-	elif [[ "$output_type" == "exe" && "$pack_as_tool" == "true" ]]; then
-
-		if [[ ${configurations} == *Release* ]]; then
-			do_build Release
-			do_publish ${command} Release ${project_name} ${github_packages_nuget_api_key} ${nuget_org_nuget_api_key}
-		fi
-
 	fi
 
 	do_increment_version
+}
+
+function get_output_type
+{
+	declare -r project_file=$1
+
+	# PEARL: In an MSBuild project file, a missing OutputType property defaults to 'Library'; however, a present but
+	#    empty OutputType property seems to default to 'Exe'! (WTF?) Note: we are not accounting for a present but empty
+	#    OutputType property here.
+	declare -l output_type=$(get_xml_value ${project_file} "OutputType")
+
+	if [[ "${output_type}" != "library" && "${output_type}" != "exe" && "${output_type}" != "" ]]; then
+		printf "%s: Invalid output type: '%s'\n" "$0" "${output_type}"
+	fi
+
+	if [ -z "${output_type}" ]; then
+		output_type="library"
+	fi
+
+	printf "%s" "${output_type}"
+}
+
+function get_configurations
+{
+	declare -r project_file=$1
+
+	declare -r configurations=$(get_xml_value ${project_file} Configurations)
+
+	declare t="${configurations}"
+	t=${t/Debug}
+	t=${t/Optimized}
+	t=${t/Develop}
+	t=${t/Release}
+	t=${t//;}
+	if [[ ${t} != "" ]]; then
+		printf "%s: Invalid configuration: '%s'.\n" "$0" "${t}"
+		exit 1
+	fi
+
+	printf "%s" "${configurations}"
+}
+
+function get_pack_as_tool
+{
+	declare -r project_file=$1
+
+	declare -l pack_as_tool=$(get_xml_value ${project_file} PackAsTool)
+
+	if [[ "${pack_as_tool}" != "" && "${pack_as_tool}" != "true" && "${pack_as_tool}" != "false" ]]; then
+		printf "%s: Invalid 'PackAsTool' value: '%s'\n" "$0" "${pack_as_tool}"
+	fi
+
+	if [ -z ${pack_as_tool} ]; then
+		pack_as_tool="false"
+	fi
+
+	printf "%s" "${pack_as_tool}"
 }
 
 run $@
