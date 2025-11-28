@@ -1,4 +1,4 @@
-name: ${{github.workflow}}
+# name: dump-context
 
 on: workflow_dispatch
 
