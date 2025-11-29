@@ -11,13 +11,16 @@ jobs:
 
     steps:
 
-      - name: Dump GitHub variables
+      # From https://manski.net/articles/github/actions/dump-context
+      - name: Dump 'gitHub' Context
         env:
-          # From https://manski.net/articles/github/actions/dump-context
           GITHUB_CONTEXT_JSON: ${{ toJson(github) }}
         run: |
           echo "$GITHUB_CONTEXT_JSON"
-          # From https://docs.github.com/en/actions/reference/workflows-and-actions/variables
+
+      # From https://docs.github.com/en/actions/reference/workflows-and-actions/variables
+      - name: Dump variables
+        run: |
           echo "CI =                         '$CI'"
           echo "GITHUB_ACTION =              '$GITHUB_ACTION'"
           echo "GITHUB_ACTION_PATH =         '$GITHUB_ACTION_PATH'"

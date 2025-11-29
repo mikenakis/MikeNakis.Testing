@@ -77,33 +77,12 @@
 	<!-- *** Versioning ******************************************************************************************* -->
 
 	<Target Name="VersioningTarget">
-		<Exec Command="git branch --show-current" ConsoleToMsBuild="True" StandardOutputImportance="Low">
-			<Output TaskParameter="ConsoleOutput" PropertyName="Branch" />
+		<Exec Command="bash -c &quot;cd .. &amp;&amp; bash get_version.bash&quot;" ConsoleToMsBuild="True" StandardOutputImportance="Low">
+			<Output TaskParameter="ConsoleOutput" PropertyName="Version" />
 		</Exec>
-
 		<PropertyGroup>
-			<VersionPrefix>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/../version.txt').TrimEnd())</VersionPrefix>
-
-			<BranchOrBlank>$(Branch)</BranchOrBlank>
-			<BranchOrBlank Condition="'$(BranchOrBlank)' == 'master'"></BranchOrBlank>
-
-			<PreRelease>PreRelease</PreRelease>
-			<PreRelease Condition="'$(PublicRelease)' == 'true'"></PreRelease>
-
-			<VersionSuffix></VersionSuffix>
-
-			<VersionSuffix Condition="'$(VersionSuffix)' != '' AND '$(BranchOrBlank)' != ''">$(VersionSuffix).</VersionSuffix>
-			<VersionSuffix>$(VersionSuffix)$(BranchOrBlank)</VersionSuffix>
-
-			<VersionSuffix Condition="'$(VersionSuffix)' != '' AND '$(PreRelease)' != ''">$(VersionSuffix).</VersionSuffix>
-			<VersionSuffix>$(VersionSuffix)$(PreRelease)</VersionSuffix>
-
-			<Version>$(VersionPrefix)</Version>
-			<Version Condition="'$(VersionSuffix)' != ''">$(Version)-$(VersionSuffix)</Version>
 			<PackageVersion>$(Version)</PackageVersion>
 		</PropertyGroup>
-
-		<Message Importance="High" Text="VersionPrefix: '$(VersionPrefix)' VersionSuffix: '$(VersionSuffix)'" />
 	</Target>
 
 	<!-- *** NuGet Packaging ************************************************************************************** -->

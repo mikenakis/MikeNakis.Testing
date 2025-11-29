@@ -4,29 +4,26 @@ source definitions.bash > /dev/null
 
 declare -r version_file_pathname=$(realpath version.txt)
 
-function create_new_version()
+function do_restore()
 {
-	declare -r part_to_increment=$1
-	declare -r old_version=$2
-
-	declare -r new_version=$(increment_version "$part_to_increment" "$old_version")
-	info "old version: %s new version: %s" "$old_version" "$new_version"
-	printf "$new_version" >| "$version_file_pathname"
-	git add "$version_file_pathname"
-	git commit --message="increment version from $old_version to $new_version"
+	info "Restore"
+	[[ "$dry_run" == true ]] && return
+	dotnet restore -check --verbosity minimal
 }
 
 function do_build()
 {
 	declare -r configuration=$1
-
+	info "Build '$1' configuration"
+	[[ "$dry_run" == true ]] && return
 	dotnet build -check --verbosity minimal --configuration "$configuration" --no-restore
 }
 
 function do_test()
 {
 	declare -r configuration=$1
-
+	info "Test '$1' configuration"
+	[[ "$dry_run" == true ]] && return
 	dotnet test -check --verbosity normal --configuration "$configuration" --no-build
 }
 
@@ -39,7 +36,9 @@ function do_publish()
 	declare -r nuget_org_nuget_api_key=$5
 
 	declare -r package_pathname=$project_name/bin/$configuration/*.nupkg
-	info "$package_pathname"
+
+	info "Publish '$configuration' configuration (project '$project_name')"
+	[[ "$dry_run" == true ]] && return
 
 	# PEARL: dotnet nuget push will push a package specified using a wildcard, but if the wildcard matches more than one file, then it
 	#    will sabotage the developer by failing with a misleading error message that says "File does not exist" instead of "More than
@@ -56,15 +55,6 @@ function do_publish()
 	fi
 }
 
-function do_increment_version()
-{
-	declare -r version=$(cat "$version_file_pathname")
-	git tag "$version"
-	create_new_version increment_patch $version
-	info "Pushing version file and tag..."
-	git push origin HEAD --tags
-}
-
 function run()
 {
 	declare -l command=""
@@ -75,19 +65,19 @@ function run()
 
 	while [ $# -gt 0 ]; do
 		case "$1" in
-			Command=*)
+			--command=*)
 				command="${1#*=}"
 				;;
-			ProjectName=*)
+			--project-name=*)
 				project_name="${1#*=}"
 				;;
-			GitHubPackagesNuGetApiKey=*)
+			--github-packages-nuget-api-key=*)
 				github_packages_nuget_api_key="${1#*=}"
 				;;
-			NuGetOrgNuGetApiKey=*)
+			--nuget-org-nuget-api-key=*)
 				nuget_org_nuget_api_key="${1#*=}"
 				;;
-			DryRun)
+			--dry-run)
 				dry_run=true
 				;;
 			*)
@@ -96,6 +86,10 @@ function run()
 		esac
 		shift
 	done
+
+	if [[ "$dry_run" == "true" ]] then
+		info "This is is a dry run; will not actually perform any actions."
+	fi
 
 	if [ -z "$command" ]; then
 		error "Missing argument: '%s'" "Command"
@@ -132,68 +126,49 @@ function run()
 	fi
 
 	declare -r project_file=$project_name/$project_name.csproj
-	if [ ! -f $project_file ]; then
-		error "Project file not found: %s." "$project_file"
+	if [ ! -f "$project_file" ]; then
+		error "Project file not found: %s" "$project_file"
 	fi
 
 	declare -r -l output_type=$(get_output_type "$project_file")
 	
 	declare -r -l pack_as_tool=$(get_pack_as_tool "$project_file")
 
-	if [[ "$output_type" == "exe" && "$pack_as_tool" == "true" && $configurations == *Develop* ]]; then
-		warn "This project builds an executable tool but has a 'Develop' configuration!?"
+	if [[ "$output_type" == "exe" && $configurations == *Develop* ]]; then
+		warn "This project builds an executable but has a 'Develop' configuration!?"
 	fi
 	
 	declare -r configurations=$(get_configurations "$project_file")
 
-	assert_no_staged_but_uncommitted_changes # required by do_increment_version
-
-	if [[ "$dry_run" == "true" ]] then
-		info "This is a dry run, terminating now."
-		exit 1
-	fi
-
-	#
 	# The logic:
 	#  First, do a dotnet restore.
 	#  Then, build and test the 'Debug' configuration, or the 'Optimized' configuration if one has been defined.
 	#  Then, if this is a library, or an exe packaged as tool, build and publish the 'Develop' and 'Release'
 	#  configurations, each if defined.
-	#
 
-	dotnet restore -check --verbosity minimal
+	do_restore
 
 	if [[ "$configurations" == *Optimized* ]]; then
-
 		do_build Optimized
 		do_test Optimized
-
 	elif [[ "$configurations" == *Debug* ]]; then
-
 		do_build Debug
 		do_test Debug
-
 	fi
 
 	if [[ "$output_type" == "library" || "$output_type" == "exe" && "$pack_as_tool" == "true" ]]; then
 
 		if [[ "$configurations" == *Develop* ]]; then
-
 			do_build Develop
 			do_publish "$command" Develop "$project_name" "$github_packages_nuget_api_key" "$nuget_org_nuget_api_key"
-
 		fi
 
 		if [[ "$configurations" == *Release* ]]; then
-
 			do_build Release
 			do_publish "$command" Release "$project_name" "$github_packages_nuget_api_key" "$nuget_org_nuget_api_key"
-
 		fi
 
 	fi
-
-	do_increment_version
 }
 
 function get_output_type

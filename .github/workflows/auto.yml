@@ -9,18 +9,18 @@ jobs:
     runs-on: ubuntu-latest
     # runs-on: windows-latest
 
-    # PEARL: If you try within a GitHub action to git-push, you get a 403 permission denied error.
+    # PEARL: In a GitHub Action, if you try to git-push you get a 403 permission denied error.
     #        The following fixes this problem.
     permissions:
       contents: write
 
     env:
-      # PEARL: In GitHub, the output of `dotnet build` looks completely different from what it looks when building
+      # PEARL: In a GitHub Action, the output of `dotnet build` looks very different from what it looks when building
       #        locally. For example, the output of "Message" tasks is not shown, even with Importance="High".
       #        The "-ConsoleLoggerParameters:off" magical incantation corrects this problem.
       # PEARL-ON-PEARL: The "-ConsoleLoggerParameters:off" magical incantation does not work when building locally; it
-      #        only works on github.
-      # The "-TerminalLogger:off" magical incantation works both when building locally and on github, and it also comes
+      #        only works on GitHub.
+      # The "-TerminalLogger:off" magical incantation works both when building locally and on GitHub, and it also comes
       # in the form of a convenient 'MSBUILDTERMINALLOGGER' environment variable.
       MSBUILDTERMINALLOGGER: off
 
@@ -29,12 +29,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-      # PEARL: If you try within a GitHub action to perform any git operation that relies on the history of the
-      #        repository being present, that operation will fail. The following fixes this problem.
+      # PEARL: In a GitHub Action, if you try to perform any git operation that relies on the history of the repository
+      #        being present, that operation will fail. The following fixes this problem.
     - name: Unshallow
       run: git fetch --prune --unshallow
 
-      # PEARL: If you try within a GitHub action to git-commit, you get an "Author identity unknown" error.
+      # PEARL: In a GitHub Action, if you try to git-commit, you get an "Author identity unknown" error.
       #        The following fixes this problem.
     - name: Identify
       run: |
@@ -46,5 +46,8 @@ jobs:
       with:
         dotnet-version: 9.0.200
 
-    - name: Launch the actual build script
-      run: bash build.bash Command=auto   ProjectName=${{ github.event.repository.name }} GitHubPackagesNuGetApiKey=${{ secrets.MY_GITHUB_TOKEN }} NuGetOrgNuGetApiKey=${{ secrets.NUGET_API_KEY }}
+    - name: Run the actual build script
+      run: |
+        bash build.bash --command=auto   --project-name=${{ github.event.repository.name }} \
+          --github-packages-nuget-api-key=${{ secrets.MY_GITHUB_TOKEN }} \
+          --nuget-org-nuget-api-key=${{ secrets.NUGET_API_KEY }}
