@@ -25,15 +25,6 @@
 		<PackageReleaseNotes></PackageReleaseNotes>
 		<IncludeSymbols Condition="'$(Configuration)' == 'Develop' OR '$(Configuration)' == 'Release'">True</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
-
-		<!-- PEARL: magical incantation to prevent a pile of garbage (a git commit hash) from being automagically
-		     appended to the assembly informational version. From https://stackoverflow.com/a/77051386/773113
-		     rumor has it that it is related to 'sourcelink', and it might in fact be necessary for sourcelink to
-			 work, so remember to disable sourcelink. -->
-		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-
-		<!-- this will be overridden from the command-line -->
-		<PublicRelease>False</PublicRelease>
 	</PropertyGroup>
 
 	<Import Project="..\AllProjects.proj.xml" />
@@ -73,17 +64,6 @@
 		<!--We include MSTest.TestFramework so that we can use the ClassInitialize and ClassCleanup attributes. -->
 		<PackageReference Include="MSTest.TestFramework" Version="3.6.2" />
 	</ItemGroup>
-
-	<!-- *** Versioning ******************************************************************************************* -->
-
-	<Target Name="VersioningTarget">
-		<Exec Command="bash -c &quot;cd .. &amp;&amp; bash get_version.bash&quot;" ConsoleToMsBuild="True" StandardOutputImportance="Low">
-			<Output TaskParameter="ConsoleOutput" PropertyName="Version" />
-		</Exec>
-		<PropertyGroup>
-			<PackageVersion>$(Version)</PackageVersion>
-		</PropertyGroup>
-	</Target>
 
 	<!-- *** NuGet Packaging ************************************************************************************** -->
 

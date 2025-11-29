@@ -7,7 +7,7 @@ declare -r version_file_pathname=$(realpath version.txt)
 function do_restore()
 {
 	info "Restore"
-	[[ "$dry_run" == true ]] && return
+	[[ $dry_run == true ]] && return
 	dotnet restore -check --verbosity minimal
 }
 
@@ -15,7 +15,7 @@ function do_build()
 {
 	declare -r configuration=$1
 	info "Build '$1' configuration"
-	[[ "$dry_run" == true ]] && return
+	[[ $dry_run == true ]] && return
 	dotnet build -check --verbosity minimal --configuration "$configuration" --no-restore
 }
 
@@ -23,7 +23,7 @@ function do_test()
 {
 	declare -r configuration=$1
 	info "Test '$1' configuration"
-	[[ "$dry_run" == true ]] && return
+	[[ $dry_run == true ]] && return
 	dotnet test -check --verbosity normal --configuration "$configuration" --no-build
 }
 
@@ -38,16 +38,14 @@ function do_publish()
 	declare -r package_pathname=$project_name/bin/$configuration/*.nupkg
 
 	info "Publish '$configuration' configuration (project '$project_name')"
-	[[ "$dry_run" == true ]] && return
+	[[ $dry_run == true ]] && return
 
 	# PEARL: dotnet nuget push will push a package specified using a wildcard, but if the wildcard matches more than one file, then it
 	#    will sabotage the developer by failing with a misleading error message that says "File does not exist" instead of "More than
 	#    one file exists".  For this reason, we have to remove all files matching the wildcard before creating the package.
 	remove_if_exists "$package_pathname"
-	dotnet pack -check --verbosity normal --configuration "$configuration" --no-build --property:PublicRelease=true
+	dotnet pack -check --verbosity normal --configuration "$configuration" --no-build
 	
-	ls $package_pathname # omit double-quotes to allow expansion
-
 	if [[ "$command" == "auto" ]]; then
 		dotnet nuget push "$package_pathname" --source https://nuget.pkg.github.com/MikeNakis/index.json --api-key "$github_packages_nuget_api_key"
 	else
@@ -86,10 +84,6 @@ function run()
 		esac
 		shift
 	done
-
-	if [[ "$dry_run" == "true" ]] then
-		info "This is is a dry run; will not actually perform any actions."
-	fi
 
 	if [ -z "$command" ]; then
 		error "Missing argument: '%s'" "Command"
@@ -134,12 +128,12 @@ function run()
 	
 	declare -r -l pack_as_tool=$(get_pack_as_tool "$project_file")
 
+	declare -r configurations=$(get_configurations "$project_file")
+
 	if [[ "$output_type" == "exe" && $configurations == *Develop* ]]; then
 		warn "This project builds an executable but has a 'Develop' configuration!?"
 	fi
 	
-	declare -r configurations=$(get_configurations "$project_file")
-
 	# The logic:
 	#  First, do a dotnet restore.
 	#  Then, build and test the 'Debug' configuration, or the 'Optimized' configuration if one has been defined.

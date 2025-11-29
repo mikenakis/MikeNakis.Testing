@@ -1,8 +1,8 @@
 #!/bin/bash
 
-source definitions.bash > /dev/null
+source $(dirname "$0")/definitions.bash > /dev/null
 
-declare -r version_file_pathname=$(realpath version.txt)
+declare -r version_file_pathname=$(dirname "$0")/version.txt
 
 function concatenate_with_dash
 {
@@ -20,8 +20,13 @@ function concatenate_with_dash
 function run()
 {
 	declare branch=$(git branch --show-current)
-	if [[ "$branch" == master ]]; then
+	if [[ $branch == master ]]; then
 		branch=""
+	fi
+
+	if [[ ! -f $version_file_pathname ]]; then
+		error "File not found: '%s'" "$version_file_pathname"
+		exit 1
 	fi
 
 	declare -r version=$(cat "$version_file_pathname")

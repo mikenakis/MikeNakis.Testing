@@ -24,10 +24,6 @@ function run()
 		shift
 	done
 
-	if [[ "$dry_run" == "true" ]] then
-		info "This is is a dry run; will not actually perform any actions."
-	fi
-
 	case "$part_to_increment" in
 		"major")
 			;;
@@ -97,7 +93,7 @@ function run()
 	echo "Current version: $current_version"
 	echo "Next version: $next_version"
 
-	[[ "$dry_run" == true ]] && return
+	[[ $dry_run == true ]] && return
 
 	printf "$current_version" >| "$version_file_pathname"
 	git add "$version_file_pathname"
