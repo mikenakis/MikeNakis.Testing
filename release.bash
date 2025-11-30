@@ -106,6 +106,7 @@ function run()
 	# sleep 10s
 
 	printf "$next_version" >| "$version_file_pathname"
+	git add "$version_file_pathname"
 	# PEARL: Still as of 2025 GitHub does not support `git push -o ci.skip`. So, we have to use `[skip ci]` in the
 	#    commit message, which is the only thing that works on both GitHub and GitLab.
 	git commit --message="Increment version to $next_version [skip ci]"
