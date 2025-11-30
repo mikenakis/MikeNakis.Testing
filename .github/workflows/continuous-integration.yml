@@ -1,4 +1,4 @@
-name: auto
+name: continuous-integration
 
 on: push
 
@@ -48,6 +48,6 @@ jobs:
 
     - name: Run the actual build script
       run: |
-        bash build.bash --command=auto   --project-name=${{ github.event.repository.name }} \
+        bash continuous-integration.bash --project-name=${{ github.event.repository.name }} \
           --github-packages-nuget-api-key=${{ secrets.MY_GITHUB_TOKEN }} \
           --nuget-org-nuget-api-key=${{ secrets.NUGET_API_KEY }}

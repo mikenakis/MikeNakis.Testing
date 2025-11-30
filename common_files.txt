@@ -1,0 +1,16 @@
+# common files copied from the MikeNakis.CommonFiles project.
+
+.editorconfig
+.gitignore
+.gitattributes
+AllCode.globalconfig
+AllProjects.proj.xml
+continuous-integration.yml .github/workflows/continuous-integration.yml
+BannedApiAnalyzers.proj.xml
+BannedSymbols.txt
+continuous-integration.bash
+definitions.bash
+get_version.bash
+manual.yml .github/workflows/manual.yml
+ProductionCode.globalconfig
+release.bash
