@@ -245,9 +245,9 @@ function get_publishing_destination
 		declare -i patch
 		IFS=. read -r major minor patch <<< "$version"
 		if [[ $patch == 0 ]]; then
-			printf "github-packages"
-		else
 			printf "nuget-org"
+		else
+			printf "github-packages"
 		fi
 	else
 		printf "none"
