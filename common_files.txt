@@ -10,7 +10,7 @@ BannedApiAnalyzers.proj.xml
 BannedSymbols.txt
 continuous-integration.bash
 definitions.bash
+get_common_files.bash
 get_version.bash
-manual.yml .github/workflows/manual.yml
 ProductionCode.globalconfig
 release.bash

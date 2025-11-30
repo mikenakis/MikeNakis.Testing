@@ -18,7 +18,7 @@ function run()
 				dry_run=true
 				;;
 			*)
-				error "Invalid argument: '%s'" "$1"
+				error "Invalid argument: '$1'"
 				exit 1
 		esac
 		shift
@@ -35,7 +35,7 @@ function run()
 			part_to_increment=patch
 			;;
 		*)
-			error "Invalid 'Increment' value: '%s'. Expected 'major', 'minor', or 'patch' (the default.)" "$part_to_increment"
+			error "Invalid increment: '$part_to_increment'. Expected 'major', 'minor', or 'patch' (the default.)"
 			exit 1
 	esac
 
@@ -51,14 +51,14 @@ function run()
 	declare pre_release
 	IFS=- read -r major_minor_patch pre_release <<< "$previous_version"
 	if [[ "$pre_release" != "PreRelease" ]]; then
-		error "The version %s is not a pre-release version! This should never happen!" "$previous_version"
+		error "The version '$previous_version' is not a pre-release version! This should never happen!"
 		exit 1
 	fi
 	declare -i old_major
 	declare -i old_minor
 	declare -i old_patch
 	IFS=. read -r old_major old_minor old_patch <<< "$major_minor_patch"
-	declare -r current_version=$(printf "%s.%s.%s" "$old_major" "$old_minor" "$old_patch")
+	printf -v current_version "%s.%s.%s" "$old_major" "$old_minor" "$old_patch"
 	if [[ "$current_version" != "$major_minor_patch" ]]; then
 		error internal error!
 		exit 1
@@ -84,10 +84,10 @@ function run()
 			new_patch=$((old_patch+1))
 			;;
 		*)
-			error "Invalid 'increment': '%s' expected 'major', 'minor', or 'patch'" "$part_to_increment"
+			error "Invalid increment: '$part_to_increment' expected 'major', 'minor', or 'patch'"
 			exit 1
 	esac
-	declare -r next_version=$(printf "%s.%s.%s-PreRelease" "$new_major" "$new_minor" "$new_patch")
+	printf -v next_version "%s.%s.%s-PreRelease" "$new_major" "$new_minor" "$new_patch"
 
 	echo "Previous version: $previous_version"
 	echo "Current version: $current_version"
