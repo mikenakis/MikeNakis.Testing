@@ -178,7 +178,7 @@ function get_output_type
 	# PEARL: In an MSBuild project file, a missing OutputType property defaults to 'Library'; however, a present but
 	#    empty OutputType property seems to default to 'Exe'! (WTF?) Note: we are not accounting for a present but empty
 	#    OutputType property here.
-	declare -l output_type=$(get_xml_value "$project_file" OutputType library)
+	declare -l output_type=$(get_xml_value "$project_file" "OutputType" "library")
 
 	case "$output_type" in
 		"library")
@@ -197,7 +197,7 @@ function get_configurations
 {
 	declare -r project_file=$1
 
-	declare -r configurations=$(get_xml_value "$project_file" Configurations)
+	declare -r configurations=$(get_xml_value "$project_file" "Configurations")
 
 	declare t="$configurations"
 	t=${t/Debug}
@@ -217,7 +217,7 @@ function get_pack_as_tool
 {
 	declare -r project_file=$1
 
-	declare -l pack_as_tool=$(get_xml_value "$project_file" PackAsTool false)
+	declare -l pack_as_tool=$(get_xml_value "$project_file" "PackAsTool" "false")
 
 	case "$pack_as_tool" in
 		"true")

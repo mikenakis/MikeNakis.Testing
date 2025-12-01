@@ -46,7 +46,7 @@ jobs:
       with:
         dotnet-version: 9.0.200
 
-    - name: Run the actual build script
+    - name: Run the actual continuous integration script
       run: |
         bash continuous-integration.bash --project-name=${{ github.event.repository.name }} \
           --github-packages-nuget-api-key=${{ secrets.MY_GITHUB_TOKEN }} \
