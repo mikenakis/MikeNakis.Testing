@@ -59,7 +59,7 @@ function run()
 	#    yielded no solution: the '--atomic' option has no effect, either with '--tags' or with the explicit tag name.
     #    The only solution seems to be to specify that the workflow must run on branches, which excludes tags.
 	git push --quiet origin HEAD
-	git push --tags
+	git push --quiet --tags
 
 	# declare -r wait_time="45s"
 	# info "Waiting for $wait_time..."
