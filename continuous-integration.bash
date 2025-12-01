@@ -2,8 +2,6 @@
 
 source definitions.bash > /dev/null
 
-declare -r version_file_pathname=$(realpath version.txt)
-
 function do_restore()
 {
 	info "Restore"
@@ -58,18 +56,10 @@ function do_publish()
 	esac
 }
 
-function get_last_commit_message()
-{
-	# PEARL: as the case is with virtually all git commands, the git command that prints the last commit message looks
-	#   absolutely nothing like a command that would print the last commit message. Linus Torvalds you are not just a
-	#   geek, you are a fucking dork.
-	# from https://stackoverflow.com/a/7293026/773113
-	# and https://stackoverflow.com/questions/7293008/display-last-git-commit-comment#comment105325732_7293026
-	git log -1 --pretty=format:%B
-}
-
 function run()
 {
+	run_this_script_in_its_directory
+
 	declare project_name=""
 	declare github_packages_nuget_api_key=""
 	declare nuget_org_nuget_api_key=""
@@ -97,8 +87,7 @@ function run()
 	done
 
 	if [ -z "$project_name" ]; then
-		error "Missing argument: '--project-name'"
-		exit 1
+		project_name=$(basename $PWD)
 	fi
 
 	if [ -z "$github_packages_nuget_api_key" ]; then
@@ -113,11 +102,13 @@ function run()
 
 	if [ ! -f *.sln? ]; then
 		error "Current directory is not a solution directory."
+		exit 1
 	fi
 
 	declare -r project_file=$project_name/$project_name.csproj
 	if [ ! -f "$project_file" ]; then
 		error "Project file not found: '$project_file'"
+		exit 1
 	fi
 
 	declare -r -l output_type=$(get_output_type "$project_file")
@@ -137,20 +128,25 @@ function run()
 	fi
 	
 	# The logic:
-	#  First, do a dotnet restore.
-	#  Then, build and test the 'Debug' configuration, or the 'Optimized' configuration if one has been defined.
-	#  Then, if we are publishing, then:
-	#      If this is a library, or an exe packaged as tool, then:
-	#          build and publish the 'Develop' and 'Release' configurations, each if defined.
+	#   Do a dotnet restore.
+	#   Build and test the 'Debug' configuration, or the 'Optimized' configuration if one has been defined.
+	#   If we are publishing, then:
+	#     If this is a library, or an exe packaged as tool, then:
+	#       Build and publish the 'Develop' configuration, if defined.
+	#       Build and publish the 'Release' configuration, if defined.
 
 	do_restore
 
 	if [[ "$configurations" == *Optimized* ]]; then
+
 		do_build Optimized
 		do_test Optimized
+
 	elif [[ "$configurations" == *Debug* ]]; then
+
 		do_build Debug
 		do_test Debug
+
 	fi
 
 	if [[ "$publishing_destination" != "none" ]]; then
@@ -158,13 +154,23 @@ function run()
 		if [[ "$output_type" == "library" || "$output_type" == "exe" && "$pack_as_tool" == "true" ]]; then
 
 			if [[ "$configurations" == *Develop* ]]; then
+
 				do_build Develop
 				do_publish Develop "$project_name" "$publishing_destination"
+
 			fi
+
 			if [[ "$configurations" == *Release* ]]; then
+
 				do_build Release
 				do_publish Release "$project_name" "$publishing_destination"
+
 			fi
+
+		else
+
+			error "This project cannot be published"
+			exit 1
 
 		fi
 
@@ -234,9 +240,7 @@ function get_pack_as_tool
 
 function get_publishing_destination
 {
-	declare -r last_commit_message=$(get_last_commit_message)
-
-	declare publishing_destination=
+	declare -r last_commit_message=$(git_get_last_commit_message)
 	declare -r release_commit_message_prefix="Release of version "
 	if [[ $last_commit_message == $release_commit_message_prefix* ]]; then
 		declare -r version=${last_commit_message#"$release_commit_message_prefix"}
