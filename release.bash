@@ -45,18 +45,25 @@ function run()
 	info "Previous version: $previous_version"
 	info "Current version:  $current_version"
 	info "Next version:     $next_version"
+	declare -r version_tag_name="$current_version"
 
 	[[ $dry_run == true ]] && return
 
 	printf "$current_version" >| "$version_file_pathname"
 	git add "$version_file_pathname"
-	git tag "$current_version"
 	git commit --quiet --message="Release of version $current_version"
+	git tag "$version_tag_name"
 	info "Pushing current version and tag..."
-	git push --quiet origin HEAD --tags
+	# PEARL: GitHub will execute an "on: push" workflow twice, on the exact same commit, if we push both files and tags
+	#    using a command like `git push origin HEAD  --tags`. Several hours of troubleshooting and trying various tricks
+	#    yielded no solution: the '--atomic' option has no effect, either with '--tags' or with the explicit tag name.
+    #    The only solution seems to be to specify that the workflow must run on branches, which excludes tags.
+	git push --quiet origin HEAD
+	git push --tags
 
-	# info "Waiting for a few seconds..."
-	# sleep 10s
+	# declare -r wait_time="45s"
+	# info "Waiting for $wait_time..."
+	# sleep "$wait_time"
 
 	printf "$next_version" >| "$version_file_pathname"
 	git add "$version_file_pathname"

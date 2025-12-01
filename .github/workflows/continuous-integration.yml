@@ -1,6 +1,13 @@
 name: continuous-integration
 
-on: push
+on:
+  push:
+    # PEARL: GitHub will execute an "on: push" workflow twice, on the exact same commit, if we push both files and tags
+    #    using a command like `git push origin HEAD  --tags`. Several hours of troubleshooting and trying various tricks
+    #    yielded no solution: the '--atomic' option has no effect, either with '--tags' or with the explicit tag name.
+    #    The only solution seems to be to specify that the workflow must run on branches, which excludes tags.
+    branches:
+      - "*"
 
 jobs:
 
