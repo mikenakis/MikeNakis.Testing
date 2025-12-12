@@ -61,9 +61,12 @@ function run()
 	git push --quiet origin HEAD
 	git push --quiet --tags
 
-	# declare -r wait_time="45s"
-	# info "Waiting for $wait_time..."
-	# sleep "$wait_time"
+	# PEARL: If two pushes happen in rapid succession, and if the github action triggered as a result of a push does
+	#    a `git pull`, then it will receive the state of the repository after the 2nd push. (Even if the 2nd push was
+	#    marked with [skip ci].) To overcome this problem, we have to add a delay between the two pushes.
+	declare -r wait_time="30s"
+	info "Waiting for $wait_time..."
+	sleep "$wait_time"
 
 	printf "$next_version" >| "$version_file_pathname"
 	git add "$version_file_pathname"
