@@ -7,7 +7,7 @@ on:
     #    yielded no solution: the '--atomic' option has no effect, either with '--tags' or with the explicit tag name.
     #    The only solution seems to be to specify that the workflow must run on branches, which excludes tags.
     branches:
-      - "*"
+      - "**"
 
 jobs:
 
