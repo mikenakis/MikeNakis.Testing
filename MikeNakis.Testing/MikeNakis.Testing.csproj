@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk" InitialTargets="VersioningTarget">
 
 	<PropertyGroup>
-	    <OutputType>Library</OutputType>
 		<TargetFramework>net9.0</TargetFramework>
+		<LangVersion>13</LangVersion>
+		<OutputType>Library</OutputType>
 		<Configurations>Debug;Optimized;Develop</Configurations>
 
 		<!-- Packing properties -->
