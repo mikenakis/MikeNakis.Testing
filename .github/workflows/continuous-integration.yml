@@ -34,7 +34,7 @@ jobs:
     steps:
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
       # PEARL: In a GitHub Action, if you try to perform any git operation that relies on the history of the repository
       #        being present, that operation will fail. The following fixes this problem.
