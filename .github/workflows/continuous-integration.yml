@@ -20,6 +20,8 @@ jobs:
     #        The following fixes this problem.
     permissions:
       contents: write
+      # Needed by the "NuGet login" step below, which requests an OIDC token from GitHub.
+      id-token: write
 
     env:
       # PEARL: In a GitHub Action, the output of `dotnet build` looks very different from what it looks when building
@@ -49,12 +51,23 @@ jobs:
         git config user.name "${{ github.actor }}"
 
     - name: Setup dotnet
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 9.0.200
+
+      # NuGet "Trusted Publishing": exchange GitHub's OIDC token for a short-lived nuget.org API key, so that no
+      # long-lived (and expiring) API key needs to be stored as a secret. This requires a Trusted Publishing policy on
+      # nuget.org for this repository and this workflow file. The key is only needed when publishing to nuget.org, which
+      # happens on "Release of version X.Y.0" commits; see `get_publishing_destination` in continuous-integration.bash.
+    - name: NuGet login
+      id: nuget_login
+      if: startsWith(github.event.head_commit.message, 'Release of version ') && endsWith(github.event.head_commit.message, '.0')
+      uses: NuGet/login@v1
+      with:
+        user: MikeNakis
 
     - name: Run the actual continuous integration script
       run: |
         bash continuous-integration.bash --project-name=${{ github.event.repository.name }} \
           --github-packages-nuget-api-key=${{ secrets.MY_GITHUB_TOKEN }} \
-          --nuget-org-nuget-api-key=${{ secrets.NUGET_API_KEY }}
+          --nuget-org-nuget-api-key=${{ steps.nuget_login.outputs.NUGET_API_KEY }}
