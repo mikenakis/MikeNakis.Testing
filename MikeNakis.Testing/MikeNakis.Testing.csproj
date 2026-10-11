@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk" InitialTargets="VersioningTarget">
 
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
-		<LangVersion>13</LangVersion>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>Default</LangVersion>
 		<OutputType>Library</OutputType>
 		<Configurations>Debug;Optimized;Develop</Configurations>
 
@@ -77,7 +77,7 @@
 
 	<ItemGroup>
 		<!-- PEARL: Visual Studio will show these items in "Solution Explorer", as if they are in the project directory,
-		    even though they are NOT. The "Visuble=false" magical incantation is necessary to prevent this. -->
+		    even though they are NOT. The "Visible=false" magical incantation is necessary to prevent this. -->
 		<None Include="..\LICENSE.md" Pack="True" PackagePath="/" Visible="False" />
 		<None Include="..\MikeNakis.Testing-Logo.png" Pack="True" PackagePath="/" Visible="False" />
 		<None Include="..\README-for-nuget.md" Pack="True" PackagePath="/README.md" Visible="False" />
