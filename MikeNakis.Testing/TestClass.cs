@@ -54,11 +54,8 @@ public abstract class TestClass
 	[VSTesting.ClassCleanup]
 	public static void OnTestClassCleanup()
 	{
-		if( auditFile != null )
-		{
-			auditFile.Dispose();
-			auditFile = null;
-		}
+		auditFile?.Dispose();
+		auditFile = null;
 	}
 
 	[VSTesting.TestCleanup]
