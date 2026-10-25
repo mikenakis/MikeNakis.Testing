@@ -4,7 +4,7 @@ source $(dirname "$0")/definitions.bash > /dev/null
 
 function run()
 {
-	run_this_script_in_its_directory
+	run_this_script_in_its_directory "$@"
 
 	declare -l part_to_increment=""
 	declare dry_run=false
