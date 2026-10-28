@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source definitions.bash > /dev/null
+source definitions.bash > /dev/null || exit 1
 
 function do_build()
 {
@@ -109,16 +109,24 @@ function run()
 		exit 1
 	fi
 
-	declare -r -l output_type=$(get_output_type "$project_file")
+	declare -l output_type
+	output_type=$(get_output_type "$project_file")
+	declare -r output_type
 	info "Output Type: $output_type"
-	
-	declare -r -l pack_as_tool=$(get_pack_as_tool "$project_file")
+
+	declare -l pack_as_tool
+	pack_as_tool=$(get_pack_as_tool "$project_file")
+	declare -r pack_as_tool
 	info "Pack as tool: $pack_as_tool"
 
-	declare -r configurations=$(get_configurations "$project_file")
+	declare configurations
+	configurations=$(get_configurations "$project_file")
+	declare -r configurations
 	info "Configurations: $configurations"
 
-	declare -r publishing_destination=$(get_publishing_destination)
+	declare publishing_destination
+	publishing_destination=$(get_publishing_destination)
+	declare -r publishing_destination
 	info "Publishing destination: $publishing_destination"
 
 	if [[ "$output_type" == "exe" && $configurations == *Develop* ]]; then
@@ -180,7 +188,8 @@ function get_output_type
 	# PEARL: In an MSBuild project file, a missing OutputType property defaults to 'Library'; however, a present but
 	#    empty OutputType property seems to default to 'Exe'! (WTF?) Note: we are not accounting for a present but empty
 	#    OutputType property here.
-	declare -l output_type=$(get_xml_value "$project_file" "OutputType" "library")
+	declare -l output_type
+	output_type=$(get_xml_value "$project_file" "OutputType" "library")
 
 	case "$output_type" in
 		"library")
@@ -192,14 +201,16 @@ function get_output_type
 			exit 1
 	esac
 
-	printf "$output_type"
+	printf "%s" "$output_type"
 }
 
 function get_configurations
 {
 	declare -r project_file=$1
 
-	declare -r configurations=$(get_xml_value "$project_file" "Configurations")
+	declare configurations
+	configurations=$(get_xml_value "$project_file" "Configurations")
+	declare -r configurations
 
 	declare t="$configurations"
 	t=${t/Debug}
@@ -212,14 +223,15 @@ function get_configurations
 		exit 1
 	fi
 
-	printf "$configurations"
+	printf "%s" "$configurations"
 }
 
 function get_pack_as_tool
 {
 	declare -r project_file=$1
 
-	declare -l pack_as_tool=$(get_xml_value "$project_file" "PackAsTool" "false")
+	declare -l pack_as_tool
+	pack_as_tool=$(get_xml_value "$project_file" "PackAsTool" "false")
 
 	case "$pack_as_tool" in
 		"true")
@@ -231,12 +243,14 @@ function get_pack_as_tool
 			exit 1
 	esac
 
-	printf "$pack_as_tool"
+	printf "%s" "$pack_as_tool"
 }
 
 function get_publishing_destination
 {
-	declare -r last_commit_message=$(git_get_last_commit_message)
+	declare last_commit_message
+	last_commit_message=$(git_get_last_commit_message)
+	declare -r last_commit_message
 	declare -r release_commit_message_prefix="Release of version "
 	if [[ $last_commit_message == $release_commit_message_prefix* ]]; then
 		declare -r version=${last_commit_message#"$release_commit_message_prefix"}

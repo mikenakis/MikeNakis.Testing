@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source $(dirname "$0")/definitions.bash > /dev/null
+source $(dirname "$0")/definitions.bash > /dev/null || exit 1
 
 function run()
 {
@@ -31,8 +31,12 @@ function run()
 
 	assert_no_staged_but_uncommitted_changes
 
-	declare -r version_file_pathname=$(realpath version.txt)
-	declare -r previous_version=$(cat "$version_file_pathname")
+	declare version_file_pathname
+	version_file_pathname=$(realpath version.txt)
+	declare -r version_file_pathname
+	declare previous_version
+	previous_version=$(cat "$version_file_pathname")
+	declare -r previous_version
 
 	IFS=- read -r current_version pre_release <<< "$previous_version"
 	if [[ "$pre_release" != "PreRelease" ]]; then
@@ -40,7 +44,9 @@ function run()
 		exit 1
 	fi
 
-	declare -r next_version="$(increment_version "$current_version" "$part_to_increment")-PreRelease"
+	declare next_version
+	next_version="$(increment_version "$current_version" "$part_to_increment")-PreRelease"
+	declare -r next_version
 
 	info "Previous version: $previous_version"
 	info "Current version:  $current_version"
@@ -49,7 +55,7 @@ function run()
 
 	[[ $dry_run == true ]] && return
 
-	printf "$current_version" >| "$version_file_pathname"
+	printf "%s" "$current_version" >| "$version_file_pathname"
 	git add "$version_file_pathname"
 	git commit --quiet --message="Release of version $current_version"
 	git tag "$version_tag_name"
@@ -68,7 +74,7 @@ function run()
 	info "Waiting for $wait_time..."
 	sleep "$wait_time"
 
-	printf "$next_version" >| "$version_file_pathname"
+	printf "%s" "$next_version" >| "$version_file_pathname"
 	git add "$version_file_pathname"
 	# PEARL: Still as of 2025 GitHub does not support `git push -o ci.skip`. So, we have to use `[skip ci]` in the
 	#    commit message, which is the only thing that works on both GitHub and GitLab.
