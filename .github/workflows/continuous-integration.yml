@@ -52,7 +52,7 @@ jobs:
 
     # Under normal circumstances, the "Setup dotnet" step is unnecessary because the runner image already
     # comes with a .NET SDK preinstalled.
-    # If a future runner image ships a newer SDK that can no longer build our projects, comment the step 
+    # If a future runner image ships a newer SDK that can no longer build our projects, comment the step
     # back in, specifying a `dotnet-version` that works.
     # - name: Setup dotnet
     #   uses: actions/setup-dotnet@v6
