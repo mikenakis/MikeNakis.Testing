@@ -38,31 +38,31 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v7
 
-      # PEARL: In a GitHub Action, if you try to perform any git operation that relies on the history of the repository
-      #        being present, that operation will fail. The following fixes this problem.
+    # PEARL: In a GitHub Action, if you try to perform any git operation that relies on the history of the repository
+    #        being present, that operation will fail. The following fixes this problem.
     - name: Unshallow
       run: git fetch --prune --unshallow
 
-      # PEARL: In a GitHub Action, if you try to git-commit, you get an "Author identity unknown" error.
-      #        The following fixes this problem.
+    # PEARL: In a GitHub Action, if you try to git-commit, you get an "Author identity unknown" error.
+    #        The following fixes this problem.
     - name: Identify
       run: |
         git config user.email "${{ github.actor }}@github.com"
         git config user.name "${{ github.actor }}"
 
-      # [Claude] The "Setup dotnet" step is commented out because the runner image already comes with a .NET SDK
-      # [Claude] preinstalled, which builds our projects, and the step was only downloading an extra SDK that went unused.
-      # [Claude] If a future runner image ships a newer SDK that can no longer build our projects, comment the step back
-      # [Claude] in, setting `dotnet-version` to an SDK that can build them, instead of the outdated 9.0.200 below.
+    # Under normal circumstances, the "Setup dotnet" step is unnecessary because the runner image already
+    # comes with a .NET SDK preinstalled.
+    # If a future runner image ships a newer SDK that can no longer build our projects, comment the step 
+    # back in, specifying a `dotnet-version` that works.
     # - name: Setup dotnet
     #   uses: actions/setup-dotnet@v6
     #   with:
     #     dotnet-version: 9.0.200
 
-      # NuGet "Trusted Publishing": exchange GitHub's OIDC token for a short-lived nuget.org API key, so that no
-      # long-lived (and expiring) API key needs to be stored as a secret. This requires a Trusted Publishing policy on
-      # nuget.org for this repository and this workflow file. The key is only needed when publishing to nuget.org, which
-      # happens on "Release of version X.Y.0" commits; see `get_publishing_destination` in continuous-integration.bash.
+    # NuGet "Trusted Publishing": exchange GitHub's OIDC token for a short-lived nuget.org API key, so that no
+    # long-lived (and expiring) API key needs to be stored as a secret. This requires a Trusted Publishing policy on
+    # nuget.org for this repository and this workflow file. The key is only needed when publishing to nuget.org, which
+    # happens on "Release of version X.Y.0" commits; see `get_publishing_destination` in continuous-integration.bash.
     - name: NuGet login
       id: nuget_login
       if: startsWith(github.event.head_commit.message, 'Release of version ') && endsWith(github.event.head_commit.message, '.0')
