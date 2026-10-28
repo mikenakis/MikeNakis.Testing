@@ -45,21 +45,34 @@ public abstract class TestClass
 
 	// PEARL: if the TestContext parameter is not specified, Visual Studio will not run the tests and will not give the
 	// slightest clue as to why it did not run them.
-	[VSTesting.ClassInitialize]
+	// PEARL: MSTest runs a [ClassInitialize] method of a base class for the derived test classes only if it is declared
+	// with InheritanceBehavior.BeforeEachDerivedClass; otherwise it silently fails to run it.
+	[VSTesting.ClassInitialize( VSTesting.InheritanceBehavior.BeforeEachDerivedClass )]
 	public static void OnTestClassInitialize( VSTesting.TestContext _ )
 	{
 		Assert( auditFile == null );
 	}
 
-	[VSTesting.ClassCleanup]
+	// PEARL: MSTest defers [ClassCleanup] methods to the end of the assembly unless they are declared with
+	// ClassCleanupBehavior.EndOfClass.
+	// The audit file of each test class must be closed and compared before the next test class starts, so we specify
+	// EndOfClass.
+	[VSTesting.ClassCleanup( VSTesting.InheritanceBehavior.BeforeEachDerivedClass, VSTesting.ClassCleanupBehavior.EndOfClass )]
 	public static void OnTestClassCleanup()
 	{
-		auditFile?.Dispose();
-		auditFile = null;
+		try
+		{
+			auditFile?.Dispose();
+		}
+		finally
+		{
+			auditFile = null;
+		}
 	}
 
+	// PEARL: "Undocumentedly", [TestCleanup] works only on instance methods and silently fails on static methods.
 	[VSTesting.TestCleanup]
-	public static void OnTestMethodCleanup()
+	public void OnTestMethodCleanup()
 	{
 		auditFile?.Flush();
 	}
