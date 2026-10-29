@@ -244,9 +244,9 @@ function get_project_names
 	done
 }
 
-# [Claude] Determines whether a project can be published as a package, that is, whether it is a library or an executable
+# Determines whether a project can be published as a package, that is, whether it is a library or an executable
 #    packaged as a tool.
-# [Claude] The result is printed as 'true' or 'false' instead of being returned as an exit status, because callers that
+# The result is printed as 'true' or 'false' instead of being returned as an exit status, because callers that
 #    would test an exit status in an `if` condition would also disable `errexit` for everything this function runs,
 #    swallowing its errors.
 function is_publishable
@@ -288,7 +288,7 @@ function get_output_type
 	printf "%s" "$output_type"
 }
 
-# [Claude] Fills the associative array named by the second argument with the configurations of the project, as keys.
+# Fills the associative array named by the second argument with the configurations of the project, as keys.
 function get_configurations
 {
 	declare -r project_file=$1
