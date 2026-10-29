@@ -22,6 +22,8 @@ jobs:
       contents: write
       # Needed by the "NuGet login" step below, which requests an OIDC token from GitHub.
       id-token: write
+      # [Claude] Needed for publishing to GitHub Packages with the built-in GITHUB_TOKEN.
+      packages: write
 
     env:
       # PEARL: In a GitHub Action, the output of `dotnet build` looks very different from what it looks when building
@@ -73,5 +75,5 @@ jobs:
     - name: Run the actual continuous integration script
       run: |
         bash continuous-integration.bash --project-name=${{ github.event.repository.name }} \
-          --github-packages-nuget-api-key=${{ secrets.MY_GITHUB_TOKEN }} \
+          --github-packages-nuget-api-key=${{ secrets.GITHUB_TOKEN }} \
           --nuget-org-nuget-api-key=${{ steps.nuget_login.outputs.NUGET_API_KEY }}
