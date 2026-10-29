@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source $(dirname "$0")/definitions.bash > /dev/null || exit 1
+if ! source $(dirname "$0")/definitions.bash > /dev/null; then exit 1; fi
 
 function run()
 {
@@ -53,7 +53,7 @@ function run()
 	info "Next version:     $next_version"
 	declare -r version_tag_name="$current_version"
 
-	[[ $dry_run == true ]] && return
+	if $dry_run; then return; fi
 
 	printf "%s" "$current_version" >| "$version_file_pathname"
 	git add "$version_file_pathname"

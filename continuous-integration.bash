@@ -1,12 +1,12 @@
 #!/bin/bash
 
-source definitions.bash > /dev/null || exit 1
+if ! source definitions.bash > /dev/null; then exit 1; fi
 
 function do_build()
 {
 	declare -r configuration=$1
 	info "Build '$1' configuration"
-	[[ $dry_run == true ]] && return
+	if $dry_run; then return; fi
 	# [Claude] Restore again for each configuration, because the assets file in 'obj' is shared by all configurations.
 	#    Package references depend on the configuration (e.g. 'MikeNakis.Kit-$(PackagesConfiguration)'), so a 'Release'
 	#    build that would reuse a 'Debug' restore would compile against, and its package would depend on, the 'Develop'
@@ -19,11 +19,31 @@ function do_test()
 {
 	declare -r configuration=$1
 	info "Test '$1' configuration"
-	[[ $dry_run == true ]] && return
+	if $dry_run; then return; fi
 	dotnet test -check --verbosity normal --configuration "$configuration" --no-build
 }
 
-function do_publish()
+function do_pack()
+{
+	declare -r configuration=$1
+	shift
+
+	info "Pack '$configuration' configuration"
+	if $dry_run; then return; fi
+
+	# PEARL: dotnet nuget push gives the developer the convenience of specifying the package to push using a wildcard,
+	#    but if the wildcard matches more than one file, then it will sabotage the developer by failing with a
+	#    misleading error message that says "File does not exist" instead of "More than one file exists".  For this
+	#    reason, we have to remove all files matching the wildcard before creating the package.
+	declare project_name
+	for project_name in "$@"; do
+		remove_if_exists "$project_name/bin/$configuration/*.nupkg"
+	done
+	# Pack all packable projects of the solution at once. (`dotnet pack` without a project packs them all.)
+	dotnet pack -check --verbosity normal --configuration "$configuration" --no-build
+}
+
+function do_push()
 {
 	declare -r configuration=$1
 	declare -r project_name=$2
@@ -32,14 +52,7 @@ function do_publish()
 	declare -r package_pathname=$project_name/bin/$configuration/*.nupkg
 
 	info "Publish '$configuration' configuration to '$destination' (project '$project_name')"
-	[[ $dry_run == true ]] && return
-
-	# PEARL: dotnet nuget push gives the developer the convenience of specifying the package to push using a wildcard,
-	#    but if the wildcard matches more than one file, then it will sabotage the developer by failing with a
-	#    misleading error message that says "File does not exist" instead of "More than one file exists".  For this
-	#    reason, we have to remove all files matching the wildcard before creating the package.
-	remove_if_exists "$package_pathname"
-	dotnet pack -check --verbosity normal --configuration "$configuration" --no-build
+	if $dry_run; then return; fi
 
 	case "$destination" in
 		"github-packages")
@@ -119,34 +132,42 @@ function run()
 	declare -r pack_as_tool
 	info "Pack as tool: $pack_as_tool"
 
-	declare configurations
-	configurations=$(get_configurations "$project_file")
+	declare -A configurations=()
+	get_configurations "$project_file" configurations
 	declare -r configurations
-	info "Configurations: $configurations"
+	info "Configurations: ${!configurations[*]}"
+
+	declare -a project_names=()
+	get_project_names "$project_name" project_names
+	declare -r project_names
+	info "Projects to publish: ${project_names[*]}"
 
 	declare publishing_destination
 	publishing_destination=$(get_publishing_destination)
 	declare -r publishing_destination
 	info "Publishing destination: $publishing_destination"
 
-	if [[ "$output_type" == "exe" && $configurations == *Develop* ]]; then
+	if [[ "$output_type" == "exe" && -v configurations[Develop] ]]; then
 		warn "This project builds an executable but has a 'Develop' configuration!?"
 	fi
-	
+
 	# The logic:
 	#   Build and test the 'Debug' configuration, or the 'Optimized' configuration if one has been defined.
 	#   If we are publishing, then:
 	#     If this is a library, or an exe packaged as tool, then:
 	#       Build and publish the 'Develop' configuration, if defined.
 	#       Build and publish the 'Release' configuration, if defined.
-	#   [Claude] Restore before building each configuration, since restore results depend on the configuration.
+	#   Restore before building each configuration, since restore results depend on the configuration.
+	#   The projects to publish are the project named after the repository, plus every '<project-name>.*'
+	#   project that is publishable and has a 'Develop' or a 'Release' configuration; each of them is published
+	#   in those of the two configurations that it defines.
 
-	if [[ "$configurations" == *Optimized* ]]; then
+	if [[ -v configurations[Optimized] ]]; then
 
 		do_build Optimized
 		do_test Optimized
 
-	elif [[ "$configurations" == *Debug* ]]; then
+	elif [[ -v configurations[Debug] ]]; then
 
 		do_build Debug
 		do_test Debug
@@ -155,29 +176,92 @@ function run()
 
 	if [[ "$publishing_destination" != "none" ]]; then
 
-		if [[ "$output_type" == "library" || "$output_type" == "exe" && "$pack_as_tool" == "true" ]]; then
+		declare name
+		for name in "${project_names[@]}"; do
+			declare publishable
+			publishable=$(is_publishable "$name/$name.csproj")
+			if ! $publishable; then
+				error "Project '$name' cannot be published"
+				exit 1
+			fi
+		done
 
-			if [[ "$configurations" == *Develop* ]]; then
+		declare configuration
+		for configuration in Develop Release; do
 
-				do_build Develop
-				do_publish Develop "$project_name" "$publishing_destination"
+			declare -a names_to_publish=()
+			for name in "${project_names[@]}"; do
+				declare -A project_configurations=()
+				get_configurations "$name/$name.csproj" project_configurations
+				if [[ -v project_configurations[$configuration] ]]; then
+					names_to_publish+=( "$name" )
+				fi
+			done
 
+			if (( ${#names_to_publish[@]} == 0 )); then
+				continue
 			fi
 
-			if [[ "$configurations" == *Release* ]]; then
+			do_build "$configuration"
+			do_pack "$configuration" "${names_to_publish[@]}"
+			for name in "${names_to_publish[@]}"; do
+				do_push "$configuration" "$name" "$publishing_destination"
+			done
 
-				do_build Release
-				do_publish Release "$project_name" "$publishing_destination"
+		done
 
-			fi
+	fi
+}
 
-		else
+# Fills the array named by the second argument with the names of the projects to publish.
+function get_project_names
+{
+	declare -r main_project_name=$1
+	declare -n project_names_result=$2
 
-			error "This project cannot be published"
-			exit 1
+	project_names_result+=( "$main_project_name" )
 
+	declare directory
+	for directory in "$main_project_name".*/; do
+		declare name=${directory%/}
+		declare project_file=$name/$name.csproj
+		if [[ ! -f "$project_file" ]]; then
+			continue
 		fi
+		declare -A project_configurations=()
+		get_configurations "$project_file" project_configurations
+		if [[ ! -v project_configurations[Develop] && ! -v project_configurations[Release] ]]; then
+			continue
+		fi
+		# [Claude] Skip a project that cannot be published, such as an executable that exercises the library, because only
+		#    the project named after the repository is required to be publishable.
+		declare publishable
+		publishable=$(is_publishable "$project_file")
+		if ! $publishable; then
+			continue
+		fi
+		project_names_result+=( "$name" )
+	done
+}
 
+# [Claude] Determines whether a project can be published as a package, that is, whether it is a library or an executable
+#    packaged as a tool.
+# [Claude] The result is printed as 'true' or 'false' instead of being returned as an exit status, because callers that
+#    would test an exit status in an `if` condition would also disable `errexit` for everything this function runs,
+#    swallowing its errors.
+function is_publishable
+{
+	declare -r project_file=$1
+
+	declare -l output_type
+	output_type=$(get_output_type "$project_file")
+	declare -l pack_as_tool
+	pack_as_tool=$(get_pack_as_tool "$project_file")
+
+	if [[ "$output_type" == "library" || "$output_type" == "exe" && "$pack_as_tool" == "true" ]]; then
+		printf "true"
+	else
+		printf "false"
 	fi
 }
 
@@ -204,26 +288,30 @@ function get_output_type
 	printf "%s" "$output_type"
 }
 
+# [Claude] Fills the associative array named by the second argument with the configurations of the project, as keys.
 function get_configurations
 {
 	declare -r project_file=$1
+	declare -n configuration_set=$2
 
-	declare configurations
-	configurations=$(get_xml_value "$project_file" "Configurations")
-	declare -r configurations
+	declare -a configuration_names
+	IFS=';' read -ra configuration_names <<< "$(get_xml_value "$project_file" "Configurations")"
 
-	declare t="$configurations"
-	t=${t/Debug}
-	t=${t/Optimized}
-	t=${t/Develop}
-	t=${t/Release}
-	t=${t//;}
-	if [[ "$t" != "" ]]; then
-		error "Invalid configuration: '$t'."
-		exit 1
-	fi
-
-	printf "%s" "$configurations"
+	declare configuration_name
+	for configuration_name in "${configuration_names[@]}"; do
+		case "$configuration_name" in
+			Debug|Optimized|Develop|Release)
+				;;
+			*)
+				error "Invalid configuration: '$configuration_name' in '$project_file'."
+				exit 1
+		esac
+		if [[ -v configuration_set[$configuration_name] ]]; then
+			error "Duplicate configuration: '$configuration_name' in '$project_file'."
+			exit 1
+		fi
+		configuration_set[$configuration_name]=1
+	done
 }
 
 function get_pack_as_tool
