@@ -147,7 +147,7 @@ function run()
 	declare -r publishing_destination
 	info "Publishing destination: $publishing_destination"
 
-	if [[ "$output_type" == "exe" && -v configurations[Develop] ]]; then
+	if [[ ( "$output_type" == "exe" || "$output_type" == "winexe" ) && -v configurations[Develop] ]]; then
 		warn "This project builds an executable but has a 'Develop' configuration!?"
 	fi
 
@@ -279,6 +279,8 @@ function get_output_type
 		"library")
 			;;
 		"exe")
+			;;
+		"winexe")
 			;;
 		*)
 			error "Invalid output type: '$output_type'"
