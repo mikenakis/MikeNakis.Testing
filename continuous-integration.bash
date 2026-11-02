@@ -2,6 +2,17 @@
 
 if ! source definitions.bash > /dev/null; then exit 1; fi
 
+function do_restore_tools()
+{
+	if [ ! -f .config/dotnet-tools.json ]; then return; fi
+	info "Restore .NET tools"
+	if $dry_run; then return; fi
+	# [Claude] Restore the .NET tools once, before any build, because the build of each project also restores them, and
+	#    the parallel builds of several projects would then download the same tool at the same time into the empty NuGet
+	#    cache of the runner, which fails with "The process cannot access the file".
+	dotnet tool restore
+}
+
 function do_build()
 {
 	declare -r configuration=$1
@@ -161,6 +172,8 @@ function run()
 	#   The projects to publish are the project named after the repository, plus every '<project-name>.*'
 	#   project that is publishable and has a 'Develop' or a 'Release' configuration; each of them is published
 	#   in those of the two configurations that it defines.
+
+	do_restore_tools
 
 	if [[ -v configurations[Optimized] ]]; then
 
