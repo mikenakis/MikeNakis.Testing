@@ -16,20 +16,21 @@ sealed class AuditFile : Sys.IDisposable
 	{
 		FilePath callerFilePath = FilePath.FromAbsolutePath( callerFilePathName );
 		FilePath auditFilePath = callerFilePath.WithReplacedExtension( auditFileExtension );
-		if( auditFilePath.Exists() )
-			resetFile( auditFilePath );
-		return new AuditFile( auditFilePath );
+		bool isResetToCommittedVersion = auditFilePath.Exists() && tryResetFile( auditFilePath );
+		return new AuditFile( auditFilePath, isResetToCommittedVersion );
 
-		static void resetFile( FilePath filePath )
+		// [Claude] Returns whether the file was reset to its committed version; an ignored or untracked file is left as it
+		// is.
+		static bool tryResetFile( FilePath filePath )
 		{
 			DirectoryPath gitDirectoryPath = getGitDirectoryPath( filePath.Directory );
 			using( Git.Repository repository = new( gitDirectoryPath.Path ) )
 			{
 				Git.FileStatus fileStatus = repository.RetrieveStatus( filePath.Path );
 				if( fileStatus.HasFlag( Git.FileStatus.Ignored ) )
-					return;
+					return false;
 				if( fileStatus.HasFlag( Git.FileStatus.NewInWorkdir ) )
-					return;
+					return false;
 
 				// PEARL: Git checkout sometimes fails when the modified file is only different by line endings.
 				//        see https://stackoverflow.com/q/2016404/773113
@@ -38,6 +39,7 @@ sealed class AuditFile : Sys.IDisposable
 				Git.CheckoutOptions checkoutOptions = new() { CheckoutModifiers = Git.CheckoutModifiers.Force };
 				string committishOrBranchSpec = True ? repository.Head.FriendlyName : "HEAD";
 				repository.CheckoutPaths( committishOrBranchSpec, EnumerableOf( filePath.Path ), checkoutOptions );
+				return true;
 			}
 
 			static DirectoryPath getGitDirectoryPath( DirectoryPath directoryPath )
@@ -55,11 +57,13 @@ sealed class AuditFile : Sys.IDisposable
 	public bool Break { get; } = true;
 	string currentSectionName = "";
 	readonly string? oldContent;
+	readonly bool isResetToCommittedVersion;
 	public TextConsumer TextConsumer { get; }
 
-	public AuditFile( FilePath outputFilePath )
+	public AuditFile( FilePath outputFilePath, bool isResetToCommittedVersion )
 	{
 		this.outputFilePath = outputFilePath;
+		this.isResetToCommittedVersion = isResetToCommittedVersion;
 		if( outputFilePath.Exists() )
 			oldContent = outputFilePath.ReadAllText();
 		else
@@ -88,7 +92,8 @@ sealed class AuditFile : Sys.IDisposable
 		if( oldContent != newContent )
 		{
 			string verb = oldContent == null ? "added" : "changed";
-			Log.Warn( $"Audit file {verb}!" );
+			string baseline = isResetToCommittedVersion ? "compared with the committed version" : "compared with the version on disk, which is not committed";
+			Log.Warn( $"Audit file {verb}! ({baseline})" );
 			Log.Warn( $"This is the {verb} audit file.", outputFilePath.Path, 0 );
 			if( !SysDiag.Debugger.IsAttached )
 				throw Failure();
